@@ -1,141 +1,242 @@
-# Cheats
-Atmosphère supports Action-Replay style cheat codes, with cheats loaded off of the SD card.
+# チート
 
-## Cheat Loading Process
-By default, Atmosphère will do the following when deciding whether to attach to a new application process:
+Atmosphère は Action-Replay スタイルのチートコードに対応しており、SD カードからチートを読み込むことができます。
 
-+ Retrieve information about the new application process from `pm` and `loader`.
-+ Check whether a user-defined key combination is held, and stop if not.
-  + This defaults to "L is not held", but can be configured with override keys.
-  + The ini key to configure this is `cheat_enable_key`.
-+ Check whether the process is a real application, and stop if not.
-  + This guards against applying cheat codes to the Homebrew Loader.
-+ Attempt to load cheats from `/atmosphere/contents/<program_id>/cheats/<build_id>.txt`, where `build_id` is the hexadecimal representation of the first 8 bytes of the application's main executable's build id.
-  + If no cheats are found, then the cheat manager will stop.
-+ Open a kernel debug session for the new application process.
-+ Signal to a system event that a new cheat process has been attached to.
+## チートの読み込みプロセス
 
-This behavior ensures that cheat codes are only loaded when the user would want them to.
+Atmosphère は、デフォルトでは、新しいアプリケーションプロセスにアタッチするかどうかを決定する際に、次のことを行います。
 
-In cases where `dmnt` has not activated the cheat manager, but the user wants to make it do so anyway, the cheat manager's service API provides a `ForceOpenCheatProcess` command that homebrew can use. This command will cause the cheat manager to try to force itself to attach to the process.
+-   新しいアプリケーションプロセスに関する情報を `pm` と `loader` から取得する。
+-   ユーザが定義したキーの組み合わせが保持されているかどうかをチェックし、保持されていない場合は停止します。
+    -   デフォルトは "L is not held" ですが、オーバーライドキーを使って設定することができます。
+    -   これを設定するための ini キーは `cheat_enable_key` です。
+-   プロセスが実際のアプリケーションであるかどうかをチェックし、そうでない場合は停止する。
+    -   これは Homebrew Loader にチートコードを適用しないようにするためのものです。
+-   ここで `build_id` はアプリケーションのメイン実行ファイルのビルド ID の最初の 8 バイトを 16 進数で表現したものです。
+    -   チートが見つからなければ、チートマネージャーは停止します。
+-   新しいアプリケーション・プロセスのカーネル・デバッグ・セッションを開きます。
+-   新しいチート・プロセスがアタッチされたことをシステム・イベントにシグナルを送ります。
 
-In cases where `dmnt` has activated the cheat manager, but the user wants to use an alternate debugger, the cheat manager's service API provides a `ForceCloseCheatProcess` command that homebrew can use. This command will cause the cheat manager to detach itself from the process.
+この動作により、チートコードはユーザーが望むときだけロードされるようになります。
 
-By default, all cheat codes listed in the loaded .txt file will be toggled on. This is configurable by the user by editing the `atmosphere!dmnt_cheats_enabled_by_default` [system setting](configurations.md).
+`dmnt` がチートマネージャーを起動していないが、ユーザーが起動させたい場合、チートマネージャーのサービス API は`ForceOpenCheatProcess` コマンドを提供し、homebrew はこれを使用することができます。このコマンドはチートマネージャを強制的にプロセスにアタッチさせようとします。
 
-Users may use homebrew programs to toggle cheats on and off at runtime via the cheat manager's service API.
+`dmnt` がチートマネージャを有効にしていて、ユーザが別のデバッガを使いたい場合、チートマネージャのサービス API は`ForceCloseCheatProcess` コマンドを提供し、homebrew はこれを使用することができます。このコマンドはチートマネージャをプロセスから切り離すことになります。
 
-## Cheat Code Compatibility
-Atmosphère manages cheat code through the execution of a small, custom virtual machine. Care has been taken to ensure that Atmosphère's cheat code format is fully backwards compatible with the pre-existing cheat code format, though new features have been added and bugs in the pre-existing cheat code applier have been fixed. Here is a short summary of the changes from the pre-existing format:
+デフォルトでは、ロードされた .txt ファイルにリストされたすべてのチートコードがトグルされます。これはユーザーが `atmosphere!dmnt_cheats_enabled_by_default` [system setting](configurations.md) を編集することで設定可能です。
 
-+ A number of bugs were fixed in the processing of conditional instructions.
-  + The pre-existing implementation was fundamentally broken, and checked for the wrong value when detecting the end of a conditional block.
-  + The pre-existing implementation also did not properly decode instructions, and instead linearly scanned for the terminator value. This caused problems if an instruction happened to encode a terminator inside its immediate values.
-  + The pre-existing implementation did not bounds check, and thus certain conditional cheat codes could cause it to read out-of-bounds memory, and potentially crash due to a data abort.
-+ Support was added for nesting conditional blocks.
-+ An instruction was added to perform much more complex arbitrary arithmetic on two registers.
-+ An instruction was added to allow writing the contents of register to a memory address specified by another register.
-+ The pre-existing implementation did not correctly synchronize with the application process, and thus would cause heavy lag under certain circumstances (especially around loading screens). This has been fixed in Atmosphère's implementation.
+ユーザーは自作プログラムを使って、チートマネージャーのサービス API を経由して、実行時にチートのオン・オフを切り替えることができます。
 
-## Cheat Code Format
-The following provides documentation of the instruction format for the virtual machine used to manage cheat codes.
+## チートコードの互換性
 
-Typically, instruction type is encoded in the upper nybble of the first instruction u32.
+Atmosphère は、小さなカスタム仮想マシンの実行を通じて、チートコードを管理します。Atmosphère のチートコードフォーマットは、既存のチートコードフォーマットと完全に後方互換性があることを保証するために、新しい機能が追加され、既存のチートコードアプライヤーのバグが修正されましたが、注意が払われています。以下、既存のフォーマットからの変更点を簡単にまとめます。
 
-### Code Type 0x0: Store Static Value to Memory
-Code type 0x0 allows writing a static value to a memory address.
+-   条件分岐の処理に関わるバグを修正しました。
+    -   従来の実装では、条件ブロックの終了を検出する際に、誤った値をチェックするなどの根本的な不具合がありました。
+    -   また、従来の実装は命令を適切にデコードせず、ターミネーターの値を線形にスキャンしていました。そのため、ある命令の直値の中にターミネーターが含まれていた場合、問題が発生することがありました。
+    -   従来の実装では境界チェックを行わなかったため、特定の条件付きチートコードによって境界外のメモリを読み込んでしまい、データのアボートによってクラッシュする可能性がありました。
+-   条件ブロックのネストをサポートしました。
+-   2 つのレジスタに対してより複雑な任意の演算を行う命令を追加しました。
+-   レジスタの内容を他のレジスタで指定されたメモリーアドレスに書き込むことができる命令を追加しました。
+-   従来の実装では、アプリケーションプロセスと正しく同期していなかったため、特定の状況下（特にローディング画面周辺）で大きな遅延が発生していました。Atmosphère の実装ではこれが修正されています。
 
-#### Encoding
+## チートコードの形式
+
+以下は、チートコードを管理するために使用される仮想マシンの命令フォーマットに関する文書です。
+
+通常、命令タイプは最初の命令 u32 の上位ニブルでエンコードされます。
+
+### コードタイプ 0x0: メモリへの静的な値の保存
+
+コードタイプ 0x0 ではメモリに静的な値を書き込むことができます。
+
+#### 記法
+
 `0TMR00AA AAAAAAAA VVVVVVVV (VVVVVVVV)`
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
-+ R: Register to use as an offset from memory region base.
-+ A: Immediate offset to use from memory region base.
-+ V: Value to write.
+-   T: 書き込む値の幅 (1, 2, 4, 8 バイト)
+-   M: 書き込み先のメモリ領域の種類 (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr)
+-   R: メモリ領域ベースからのオフセットとして使用するレジスタ
+-   A: メモリ領域ベースからの即値オフセット
+-   V: 書き込む値
+
+#### 例
+
+```
+08000000 00123456 00000003 FF000000
+```
+
+Main のメモリ領域ベースから `0x00123456` の即値オフセットとなるメモリに、8 バイトの値 `0x00000003FF000000` を書き込みます
 
 ---
 
-### Code Type 0x1: Begin Conditional Block
-Code type 0x1 performs a comparison of the contents of memory to a static value.
+### コードタイプ 0x1: 条件ブロックの開始
 
-If the condition is not met, all instructions until the appropriate End or Else conditional block terminator are skipped.
+コードタイプ 0x1 はメモリの内容と静的な値との比較を実行します。
 
-#### Encoding
+もし条件に合わない場合、適切な End または Else ブロックまでの全ての命令はスキップされます。
+
+#### 記法
+
 `1TMC00AA AAAAAAAA VVVVVVVV (VVVVVVVV)`
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
-+ C: Condition to use, see below.
-+ A: Immediate offset to use from memory region base.
-+ V: Value to compare to.
+-   T: 書き込むメモリの幅 (1, 2, 4, 8 バイト).
+-   M: 書き込み先のメモリ領域の種類 (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr)
+-   C: 使用する条件。下記参照
+-   A: メモリ領域ベースからの即値オフセット
+-   V: 書き込む値
 
-#### Conditions
-+ 1: >
-+ 2: >=
-+ 3: <
-+ 4: <=
-+ 5: ==
-+ 6: !=
+#### 条件
+
+-   1: >
+-   2: >=
+-   3: <
+-   4: <=
+-   5: ==
+-   6: !=
+
+#### 例
+
+```
+14150000 12345678 40000000
+...
+[処理]
+...
+20000000
+```
+
+Heap メモリ領域ベースから `0x12345678` の即値オフセットとなるメモリの内容が、`0x40000000` と一致する場合のみ `[処理]` が実行されます。終了ブロックについては、[コードタイプ 0x2](#コードタイプ-0x2:-条件ブロックの終了) を参照してください。
 
 ---
 
-### Code Type 0x2: End Conditional Block
-Code type 0x2 marks the end of a conditional block (started by Code Type 0x1 or Code Type 0x8).
+### コードタイプ 0x2: 条件ブロックの終了
 
-When an Else is executed, all instructions until the appropriate End conditional block terminator are skipped.
+コードタイプ 0x2 は条件ブロックの終了を表します。 (コードタイプ 0x1 または コードタイプ 0x8 によって開始されます)
 
-#### Encoding
+Else が実行された時、 適切な End または Else ブロックまでの全ての命令はスキップされます。
+
+#### 記法
+
 `2X000000`
 
-+ X: End type (0 = End, 1 = Else).
+-   X: 終了タイプ (0 = End, 1 = Else).
+
+#### 例
+
+```
+14150000 12345678 40000000
+...
+[処理 1]
+...
+21000000
+...
+[処理 2]
+...
+20000000
+```
+
+一行目の条件ブロックで条件に合わなかった場合にのみ、`[処理 2]` が実行されます。
+
+```
+80000001
+...
+[処理]
+...
+20000000
+```
+
+A ボタンが押された時のみ `[処理]` が実行されます。キー入力条件については [コードタイプ 0x8]() を参照してください。
 
 ---
 
-### Code Type 0x3: Start/End Loop
-Code type 0x3 allows for iterating in a loop a fixed number of times.
+### コードタイプ 0x3: ループの開始/終了
 
-#### Start Loop Encoding
+コードタイプ 0x3 はループを一定回数だけ繰り返すことができます。
+
+#### ループの開始記法
+
 `300R0000 VVVVVVVV`
 
-+ R: Register to use as loop counter.
-+ V: Number of iterations to loop.
+-   R: ループのカウンタとして使用するレジスタ
+-   V: ループする回数
 
-#### End Loop Encoding
+#### ループの終了記法
+
 `310R0000`
 
-+ R: Register to use as loop counter.
+-   R: ループのカウンタとして使用するレジスタ
+
+#### 例
+
+```
+300F0000 00000100
+...
+[処理]
+...
+310F0000
+```
+
+`[処理]` が `0x100` 回実行されます
 
 ---
 
-### Code Type 0x4: Load Register with Static Value
-Code type 0x4 allows setting a register to a constant value.
+### コードタイプ 0x4: レジスタに静的な値を保存する
 
-#### Encoding
+コードタイプ 0x4 はレジスタに静的な値をセットすることができます
+
+#### 記法
+
 `400R0000 VVVVVVVV VVVVVVVV`
 
-+ R: Register to use.
-+ V: Value to load.
+-   R: 使用するレジスタ
+-   V: 保存する値
+
+#### 例
+
+```
+400F0000 00000012 3456789A
+```
+
+レジスタ `F` に `0x123456789A` を保存します
 
 ---
 
-### Code Type 0x5: Load Register with Memory Value
-Code type 0x5 allows loading a value from memory into a register, either using a fixed address or by dereferencing the destination register.
+### コードタイプ 0x5: レジスタにメモリの値を読み込む
 
-#### Load From Fixed Address Encoding
+コードタイプ 0x5 はメモリの値をレジスタに読み込むことができ、 固定アドレス、または間接参照ポインタを持つレジスタの到達先を使用します
+
+#### 固定アドレスから読み込む記法
+
 `5TMR00AA AAAAAAAA`
 
-+ T: Width of memory read (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
-+ R: Register to load value into.
-+ A: Immediate offset to use from memory region base.
+-   T: 読み込むメモリの幅 (1, 2, 4, 8 バイト)
+-   M: 読み込むメモリの領域の種類 (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
+-   R: 値を保存するレジスタ
+-   A: メモリ領域ベースからの即値オフセット
 
-#### Load from Register Address Encoding
+#### 例
+
+```
+580F0000 00123456
+```
+
+Main メモリから `0x123456` のオフセットとなるアドレスの、8 バイトのメモリの値をレジスタ F に保存します
+
+#### レジスタから読み込む記法
+
 `5T0R10AA AAAAAAAA`
 
-+ T: Width of memory read (1, 2, 4, or 8 bytes).
-+ R: Register to load value into. (This register is also used as the base memory address).
-+ A: Immediate offset to use from register R.
+-   T: 読み込むメモリの幅 (1, 2, 4, 8 バイト)
+-   R: 値を保存するレジスタ (このレジスタはベースメモリアドレスにも使用されます)
+-   A: レジスタ R との即値オフセット
+
+#### 例
+
+```
+580F1000 00000078
+```
+
+レジスタ F に保存されている値のアドレスから、オフセット `0x78` となるアドレスのメモリの値を レジスタ F に保存します
 
 ---
 
