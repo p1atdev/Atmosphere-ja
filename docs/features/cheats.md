@@ -240,162 +240,209 @@ Main メモリから `0x123456` のオフセットとなるアドレスの、8 �
 
 ---
 
-### Code Type 0x6: Store Static Value to Register Memory Address
-Code type 0x6 allows writing a fixed value to a memory address specified by a register.
+### コードタイプ 0x6: レジスタのメモリアドレスに静的な値を保存する
 
-#### Encoding
+コードタイプ 0x6 はレジスタで指定されたメモリアドレスに固定値を書き込むことができます
+
+#### 記法
+
 `6T0RIor0 VVVVVVVV VVVVVVVV`
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ R: Register used as base memory address.
-+ I: Increment register flag (0 = do not increment R, 1 = increment R by T).
-+ o: Offset register enable flag (0 = do not add r to address, 1 = add r to address).
-+ r: Register used as offset when o is 1.
-+ V: Value to write to memory.
+-   T: 書き込むメモリの幅 (1, 2, 4, 8 バイト).
+-   R: ベースメモリアドレスとして使用するレジスタ
+-   I: レジスタのインクリメントフラグ (0 = R をインクリメントしない, 1 = R を T だけインクリメントする)
+-   o: オフセットレジスタの有効フラグ (0 = r をアドレスに加算しない, 1 = r をアドレスに加算する)
+-   r: o が 1 の場合にオフセットとして使用されるレジスタ
+-   V: メモリに書き込む値
+
+#### 例
+
+```
+640F0000 00000012 3456789A
+```
+
+レジスタ F で指定されたメモリアドレスに、`0x123456789A` を書き込みます
 
 ---
 
-### Code Type 0x7: Legacy Arithmetic
-Code type 0x7 allows performing arithmetic on registers.
+### コードタイプ 0x7: レガシーな算術
 
-However, it has been deprecated by Code type 0x9, and is only kept for backwards compatibility.
+コードタイプ 0x7 はレジスタに対して算術を行うことができます
 
-#### Encoding
+しかし、コードタイプ 0x9 によって非推奨となっており、後方互換性のために残されています
+
+#### 記法
+
 `7T0RC000 VVVVVVVV`
 
-+ T: Width of arithmetic operation (1, 2, 4, or 8 bytes).
-+ R: Register to apply arithmetic to.
-+ C: Arithmetic operation to apply, see below.
-+ V: Value to use for arithmetic operation.
+-   T: 算術演算する幅 (1, 2, 4, 8 バイト).
+-   R: 算術を適用するレジスタ
+-   C: 適用する算術演算の種類。下記参照
+-   V: 算術演算に使用される値
 
-#### Arithmetic Types
-+ 0: Addition
-+ 1: Subtraction
-+ 2: Multiplication
-+ 3: Left Shift
-+ 4: Right Shift
+#### 算術タイプ
+
+-   0: 加算
+-   1: 減算
+-   2: 乗算
+-   3: 左シフト
+-   4: 右シフト
+
+#### 例
+
+```
+740F0000 00001234
+```
+
+レジスタ F の値に `0x1234` を加算します
 
 ---
 
-### Code Type 0x8: Begin Keypress Conditional Block
-Code type 0x8 enters or skips a conditional block based on whether a key combination is pressed.
+### コードタイプ 0x8: キー入力条件ブロックの開始
 
-#### Encoding
+コードタイプ 0x8 はキーコンビネーションが入力されたかどうかによって実行またはスキップされる条件ブロックを開始します
+
+#### 記法
+
 `8kkkkkkk`
 
-+ k: Keypad mask to check against, see below.
+-   k: 照合するキーパッドマスク。下記参照
 
-Note that for multiple button combinations, the bitmasks should be ORd together.
+なお、複数のボタンの組み合わせの場合、ビットマスクは ORd でまとめる必要があります
 
-#### Keypad Values
-Note: This is the direct output of `hidKeysDown()`.
+#### キーパッドの値
 
-+ 0000001: A
-+ 0000002: B
-+ 0000004: X
-+ 0000008: Y
-+ 0000010: Left Stick Pressed
-+ 0000020: Right Stick Pressed
-+ 0000040: L
-+ 0000080: R
-+ 0000100: ZL
-+ 0000200: ZR
-+ 0000400: Plus
-+ 0000800: Minus
-+ 0001000: Left
-+ 0002000: Up
-+ 0004000: Right
-+ 0008000: Down
-+ 0010000: Left Stick Left
-+ 0020000: Left Stick Up
-+ 0040000: Left Stick Right
-+ 0080000: Left Stick Down
-+ 0100000: Right Stick Left
-+ 0200000: Right Stick Up
-+ 0400000: Right Stick Right
-+ 0800000: Right Stick Down
-+ 1000000: SL
-+ 2000000: SR
+注: これは `hidKeysDown()` の直接の出力です
+
+-   0000001: A
+-   0000002: B
+-   0000004: X
+-   0000008: Y
+-   0000010: 左スティック押し込み
+-   0000020: 右スティック押し込み
+-   0000040: L
+-   0000080: R
+-   0000100: ZL
+-   0000200: ZR
+-   0000400: プラス
+-   0000800: マイナス
+-   0001000: 左
+-   0002000: 上
+-   0004000: 右
+-   0008000: 下
+-   0010000: 左スティック左
+-   0020000: 左スティック上
+-   0040000: 左スティック右
+-   0080000: 左スティック下
+-   0100000: 右スティック左
+-   0200000: 右スティック上
+-   0400000: 右スティック右
+-   0800000: 右スティック下
+-   1000000: SL
+-   2000000: SR
+
+#### 例
+
+```
+80000300
+...
+[処理]
+...
+20000000
+```
+
+ZR と ZL を同時に押した時のみ `処理` が実行されます
 
 ---
 
-### Code Type 0x9: Perform Arithmetic
-Code type 0x9 allows performing arithmetic on registers.
+### コードタイプ 0x9: 算術演算
 
-#### Register Arithmetic Encoding
+コードタイプ 0x9 はレジスタに対して算術演算をすることができます
+
+#### レジスタ算術記法
+
 `9TCRS0s0`
 
-+ T: Width of arithmetic operation (1, 2, 4, or 8 bytes).
-+ C: Arithmetic operation to apply, see below.
-+ R: Register to store result in.
-+ S: Register to use as left-hand operand.
-+ s: Register to use as right-hand operand.
+-   T: 算術演算の幅 (1, 2, 4, 8 バイト)
+-   C: 適用する算術演算の種類。下記参照
+-   R: 結果を保存するレジスタ
+-   S: 左辺オペランドに使われるレジスタ
+-   s: 右辺オペランドに使われるレジスタ
 
-#### Immediate Value Arithmetic Encoding
+#### 即値算術記法
+
 `9TCRS100 VVVVVVVV (VVVVVVVV)`
 
-+ T: Width of arithmetic operation (1, 2, 4, or 8 bytes).
-+ C: Arithmetic operation to apply, see below.
-+ R: Register to store result in.
-+ S: Register to use as left-hand operand.
-+ V: Value to use as right-hand operand.
+-   T: 算術演算の幅 (1, 2, 4, 8 バイト)
+-   C: 適用する算術演算の種類。下記参照
+-   R: 結果を保存するレジスタ
+-   S: 左辺オペランドに使われるレジスタ
+-   V: 右辺オペランドに使われる値
 
-#### Arithmetic Types
-+ 0: Addition
-+ 1: Subtraction
-+ 2: Multiplication
-+ 3: Left Shift
-+ 4: Right Shift
-+ 5: Logical And
-+ 6: Logical Or
-+ 7: Logical Not (discards right-hand operand)
-+ 8: Logical Xor
-+ 9: None/Move (discards right-hand operand)
+#### 算術タイプ
+
+-   0: 加算
+-   1: 減算
+-   2: 乗算
+-   3: 左シフト
+-   4: 右シフト
+-   5: 論理積 And
+-   6: 論理和 Or
+-   7: 論理否定 Not (右辺のオペランドを破棄する)
+-   8: 排他的論理和 Xor
+-   9: なし/移動 (右辺のオペランドを破棄する)
 
 ---
 
-### Code Type 0xA: Store Register to Memory Address
-Code type 0xA allows writing a register to memory.
+### コードタイプ 0xA: メモリアドレスにレジスタを書き込む
 
-#### Encoding
+コードタイプ 0xA メモリにレジスタを書き込むことができます
+
+#### 記法
+
 `ATSRIOxa (aaaaaaaa)`
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ S: Register to write to memory.
-+ R: Register to use as base address.
-+ I: Increment register flag (0 = do not increment R, 1 = increment R by T).
-+ O: Offset type, see below.
-+ x: Register used as offset when O is 1, Memory type when O is 3, 4 or 5.
-+ a: Value used as offset when O is 2, 4 or 5.
+-   T: 書き込むメモリの幅 (1, 2, 4, 8 バイト).
+-   S: メモリに書き込むレジスタ
+-   R: ベースアドレスとして使用するレジスタ
+-   I: レジスタのインクリメントフラグ (0 = R をインクリメントしない, 1 = R を T だけインクリメントする)
+-   O: オフセットタイプ。下記参照
+-   x: O が 1 のとき、オフセットとして使用される値。O が 3, 4, 5 のとき、メモリタイプ
+-   a: O が 2, 4, 5 の時、オフセットとして使用される値
 
-#### Offset Types
-+ 0: No Offset
-+ 1: Use Offset Register
-+ 2: Use Fixed Offset
-+ 3: Memory Region + Base Register
-+ 4: Memory Region + Relative Address (ignore address register)
-+ 5: Memory Region + Relative Address + Offset Register
+#### オフセットタイプ
 
----
-
-### Code Type 0xB: Reserved
-Code Type 0xB is currently reserved for future use.
+-   0: オフセットなし
+-   1: レジスタオフセットを使用する
+-   2: 固定オフセットを使用する
+-   3: メモリ領域 + ベースレジスタ
+-   4: メモリ領域 + 相対アドレス (アドレスレジスタを無視する)
+-   5: メモリ領域 + 相対アドレス + オフセットレジスタ
 
 ---
 
-### Code Type 0xC-0xF: Extended-Width Instruction
+### コードタイプ 0xB: 予約
+
+コードタイプ 0xB は現在、将来の拡張のために予約されています。
+
+---
+
+### コードタイプ 0xC-0xF: 拡張幅命令
+
 Code Types 0xC-0xF signal to the VM to treat the upper two nybbles of the first dword as instruction type, instead of just the upper nybble.
 
 This reserves an additional 64 opcodes for future use.
 
 ---
 
-### Code Type 0xC0: Begin Register Conditional Block
+### コードタイプ 0xC0: レジスタ条件ブロックの開始
+
 Code type 0xC0 performs a comparison of the contents of a register and another value. This code support multiple operand types, see below.
 
 If the condition is not met, all instructions until the appropriate conditional block terminator are skipped.
 
-#### Encoding
+#### 記法
+
 ```
 C0TcSX##
 C0TcS0Ma aaaaaaaa
@@ -406,108 +453,125 @@ C0TcS400 VVVVVVVV (VVVVVVVV)
 C0TcS5X0
 ```
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ c: Condition to use, see below.
-+ S: Source Register.
-+ X: Operand Type, see below.
-+ M: Memory Type (operand types 0 and 1).
-+ R: Address Register (operand types 2 and 3).
-+ a: Relative Address (operand types 0 and 2).
-+ r: Offset Register (operand types 1 and 3).
-+ X: Other Register (operand type 5).
-+ V: Value to compare to (operand type 4).
+-   T: Width of memory write (1, 2, 4, or 8 bytes).
+-   c: Condition to use, see below.
+-   S: Source Register.
+-   X: Operand Type, see below.
+-   M: Memory Type (operand types 0 and 1).
+-   R: Address Register (operand types 2 and 3).
+-   a: Relative Address (operand types 0 and 2).
+-   r: Offset Register (operand types 1 and 3).
+-   X: Other Register (operand type 5).
+-   V: Value to compare to (operand type 4).
 
-#### Operand Type
-+ 0: Memory Base + Relative Offset
-+ 1: Memory Base + Offset Register
-+ 2: Register + Relative Offset
-+ 3: Register + Offset Register
-+ 4: Static Value
-+ 5: Other Register
+#### オペランドタイプ
 
-#### Conditions
-+ 1: >
-+ 2: >=
-+ 3: <
-+ 4: <=
-+ 5: ==
-+ 6: !=
+-   0: Memory Base + Relative Offset
+-   1: Memory Base + Offset Register
+-   2: Register + Relative Offset
+-   3: Register + Offset Register
+-   4: Static Value
+-   5: Other Register
+
+#### 条件
+
+-   1: >
+-   2: >=
+-   3: <
+-   4: <=
+-   5: ==
+-   6: !=
 
 ---
 
-### Code Type 0xC1: Save or Restore Register
+### コードタイプ 0xC1: レジスタの保存・復元
+
 Code type 0xC1 performs saving or restoring of registers.
 
-#### Encoding
+#### 記法
+
 `C10D0Sx0`
 
-+ D: Destination index.
-+ S: Source index.
-+ x: Operand Type, see below.
+-   D: Destination index.
+-   S: Source index.
+-   x: Operand Type, see below.
 
-#### Operand Type
-+ 0: Restore register
-+ 1: Save register
-+ 2: Clear saved value
-+ 3: Clear register
+#### オペランドタイプ
+
+-   0: Restore register
+-   1: Save register
+-   2: Clear saved value
+-   3: Clear register
 
 ---
 
-### Code Type 0xC2: Save or Restore Register with Mask
+### コードタイプ 0xC2:マスクによるレジスタの保存・復元
+
 Code type 0xC2 performs saving or restoring of multiple registers using a bitmask.
 
-#### Encoding
+#### 記法
+
 `C2x0XXXX`
 
-+ x: Operand Type, see below.
-+ X: 16-bit bitmask, bit i == save or restore register i.
+-   x: Operand Type, see below.
+-   X: 16-bit bitmask, bit i == save or restore register i.
 
-#### Operand Type
-+ 0: Restore register
-+ 1: Save register
-+ 2: Clear saved value
-+ 3: Clear register
+#### オペランドタイプ
+
+-   0: Restore register
+-   1: Save register
+-   2: Clear saved value
+-   3: Clear register
 
 ---
 
-### Code Type 0xC3: Read or Write Static Register
+### コードタイプ 0xC3: 固定レジスタに静的な値を読み書きする
+
 Code type 0xC3 reads or writes a static register with a given register.
 
-#### Encoding
+#### 記法
+
 `C3000XXx`
 
-+ XX: Static register index, 0x00 to 0x7F for reading or 0x80 to 0xFF for writing.
-+ x: Register index.
+-   XX: Static register index, 0x00 to 0x7F for reading or 0x80 to 0xFF for writing.
+-   x: Register index.
 
 ---
 
-### Code Type 0xF0: Double Extended-Width Instruction
+### コードタイプ 0xF0: ダブル拡張幅命令
+
 Code Type 0xF0 signals to the VM to treat the upper three nybbles of the first dword as instruction type, instead of just the upper nybble.
 
 This reserves an additional 16 opcodes for future use.
 
 ---
 
-### Code Type 0xFF0: Pause Process
+### コード来ぷ 0xFF0: プロセスを一時停止
+
 Code type 0xFF0 pauses the current process.
 
-#### Encoding
+#### 記法
+
 `FF0?????`
 
 ---
 
-### Code Type 0xFF1: Resume Process
+### コードタイプ 0xFF1: プロセスを再開
+
 Code type 0xFF1 resumes the current process.
 
-#### Encoding
+#### 記法
+
 `FF1?????`
 
 ---
 
-### Code Type 0xFFF: Debug Log
+### コードタイプ 0xFFF: デバッグログ
+
 Code type 0xFFF writes a debug log to the SD card under the folder `/atmosphere/cheat_vm_logs/`.
 
-#### Encoding
+#### 記法
+
 ```
 FFFTIX##
 FFFTI0Ma aaaaaaaa
@@ -517,18 +581,19 @@ FFFTI3Rr
 FFFTI4X0
 ```
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ I: Log id.
-+ X: Operand Type, see below.
-+ M: Memory Type (operand types 0 and 1).
-+ R: Address Register (operand types 2 and 3).
-+ a: Relative Address (operand types 0 and 2).
-+ r: Offset Register (operand types 1 and 3).
-+ X: Value Register (operand type 4).
+-   T: Width of memory write (1, 2, 4, or 8 bytes).
+-   I: Log id.
+-   X: Operand Type, see below.
+-   M: Memory Type (operand types 0 and 1).
+-   R: Address Register (operand types 2 and 3).
+-   a: Relative Address (operand types 0 and 2).
+-   r: Offset Register (operand types 1 and 3).
+-   X: Value Register (operand type 4).
 
-#### Operand Type
-+ 0: Memory Base + Relative Offset
-+ 1: Memory Base + Offset Register
-+ 2: Register + Relative Offset
-+ 3: Register + Offset Register
-+ 4: Register Value
+#### オペランドタイプ
+
+-   0: Memory Base + Relative Offset
+-   1: Memory Base + Offset Register
+-   2: Register + Relative Offset
+-   3: Register + Offset Register
+-   4: Register Value
